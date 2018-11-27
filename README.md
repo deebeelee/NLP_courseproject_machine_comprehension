@@ -11,7 +11,7 @@ _Note: Upload MRC models and scripts here but have the train/test data locally b
    
    Run 'evaluate.py' accordingly.
 
-- Baseline
+- Baseline  
    A pure coin toss approach.  
    Scores 0.50 consistently for P,R, and F1
 
