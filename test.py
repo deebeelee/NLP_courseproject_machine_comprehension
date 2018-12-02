@@ -2,9 +2,10 @@ import sys
 import os
 import json
 from randommodel import RandomModel
+from rnnmodel import RNNModel
 
 if __name__ == "__main__":
-    m = RandomModel()
+    m = RNNModel()
     try:
         train_fname = sys.argv[1]
     except:
