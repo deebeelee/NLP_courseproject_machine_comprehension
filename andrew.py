@@ -9,7 +9,7 @@ from sklearn.linear_model import LogisticRegression
 class Andrew:
 
     def __init__(self, data_filepath):
-        path_to_data = os.path.join(os.getcwd(), "development.json")
+        path_to_data = os.path.join(os.getcwd(), data_filepath)
         current_loc = os.getcwd()
         data_path, data_file_name = path_to_data.rsplit(os.sep, 1)
         os.chdir(data_path)
@@ -81,7 +81,41 @@ class Andrew:
             previous_index = index
         return inversion_count
 
-    def featurize(self, question, context):
+    def when_special(self, word_list, max_score_sentence_tags):
+        if (word_list[0] == "When"):
+            for tag in max_score_sentence_tags:
+                if (tag[1] == "CD"):
+                    return 1
+                else: 
+                    return 0
+        return 0
+
+    def where_special(self, word_list, max_score_sentence_tags):
+        if (word_list[0] == "Where"):
+            for i in range(len(max_score_sentence_tags)):
+                if (max_score_sentence_tags[i][1] == "NNP"):
+                    try:
+                        if (max_score_sentence_tags[i-1][1] == "IN"):
+                            return 1
+                    except:
+                        return 0
+        return 0
+
+    def who_special(self, word_list, max_score_sentence_tags):
+        if (word_list[0] == "Who"):
+            for tag in max_score_sentence_tags:
+                if (tag[1] == "NNP" or tag[1] == "NNPS"):
+                    return 1
+        return 0
+
+    def other_special(self, word_list, max_score_sentence_tags):
+        if (word_list[0] == "In" or word_list[0] == "From"):
+            for tag in max_score_sentence_tags:
+                if (tag[0] == word_list[0]):
+                    return 1
+        return 0
+
+    def featurize(self, question, context, ablation):
         features = []
         noun_list, verb_list, word_list, special_list = self.count_things(question)
         features.append(len(noun_list)) #0
@@ -89,10 +123,19 @@ class Andrew:
         features.append(len(word_list)) #2
         matches, max_score_sentence = self.count_matches([noun_list, verb_list, word_list], context)
         features.append(matches[0]) #3
-        features.append(matches[1]) #4
+        #features.append(matches[1]) #4
         features.append(matches[2]) #5
-        inversions = self.detect_inversion(special_list, max_score_sentence)
-        features.append(inversions) #6
+        #inversions = self.detect_inversion(special_list, max_score_sentence)
+        #features.append(inversions) #6
+        max_score_sentence_tags = nltk.pos_tag(nltk.word_tokenize(max_score_sentence))
+        #special_question_rule = self.when_special(word_list, max_score_sentence_tags) + self.where_special(word_list, max_score_sentence_tags) + self.who_special(word_list, max_score_sentence_tags)
+        #features.append(special_question_rule)
+        features.append(self.when_special(word_list, max_score_sentence_tags)) #7
+        features.append(self.where_special(word_list, max_score_sentence_tags)) #8
+        features.append(self.who_special(word_list, max_score_sentence_tags)) #9
+        features.append(self.other_special(word_list, max_score_sentence_tags)) #10
+        if (ablation >= 0):
+            features.pop(ablation)
         return features
 
     # Extract X and Y vectors from the data to use for logistic regression
@@ -107,7 +150,7 @@ class Andrew:
                         Y.append(0)
                     else:
                         Y.append(1)
-                    X.append(self.featurize(question["question"], context))
+                    X.append(self.featurize(question["question"], context, -1))
         with open(x_filename, 'wb') as fp:
             pickle.dump(X, fp)
         with open(y_filename, 'wb') as fp:
@@ -122,32 +165,91 @@ class Andrew:
     def train_LR(self, X, Y, model_filename):
         model = LogisticRegression()
         model.fit(X, Y)
-        with open(filename, 'wb') as fp:
+        with open(model_filename, 'wb') as fp:
             pickle.dump(model, fp)
         return model
 
     def open_model(self, model_filename):
         return pickle.load(open(model_filename, 'rb'))
 
-    def generate_predictions(self, model, test_data_filename, output_filename):
+    def write_output(self, ids, labels, filename):
+        output_dict = {}
+        for i in range(len(ids)):
+            output_dict[ids[i]] = labels[i]
+        with open(filename, 'w') as outfile:
+            json.dump(output_dict, outfile)
+
+    def generate_predictions(self, model, test_data_filename, output_filename, ablation):
         # First load the test data into memory
+        path_to_data = os.path.join(os.getcwd(), test_data_filename)
+        current_loc = os.getcwd()
+        data_path, data_file_name = path_to_data.rsplit(os.sep, 1)
+        os.chdir(data_path)
+        with open(data_file_name, "r") as fileHandle:
+            test_data = json.load(fileHandle)
+        os.chdir(current_loc)
+
         # Then, featurize the questions from the test data
+        Xtest=[]
         # Keep track of the question IDs in order
+        Xids =[]
+        for title in test_data["data"]:
+            for paragraph in title["paragraphs"]:
+                context = paragraph["context"]
+                for question in paragraph["qas"]:
+                    Xtest.append(self.featurize(question["question"], context, ablation))
+                    Xids.append(question["id"])
+
         # Feed the features into the model
-        # Generate classifications from the model in vector form
+        C = model.predict(Xtest)
+        C = C.tolist()
         # Use a helper function to take a vector plus IDs and convert it to output form
-        # Write to output. 
+        self.write_output(Xids, C, output_filename)
+
+    def json_to_kaggle(self, json_filename, csv_filename):
+        with open(json_filename, "r") as fileHandle:
+            output_dict = json.load(fileHandle)
+        with open(csv_filename, "w") as g:
+            g.write("Id,Category\n")
+            for k, v in output_dict.items():
+                g.write(k)
+                g.write(",")
+                g.write(str(v))
+                g.write("\n")
 
 if __name__ == "__main__":
 
-    a = Andrew("development.json")
-    X, Y = a.vectorize("x_trial_1.sav", "y_trial_1.sav")
-    print(X)
-    print(Y)
-    print(len(X))
-    print(len(X[0]))
-    print(len(Y))
+    a = Andrew("training.json")
+    # Advanced Feature Set and Ablation Testing
+    X, Y = a.vectorize("x_trial_reduced.sav", "y_trial_reduced.sav")
+    #X, Y = a.open_vectors("x_trial_ablation.sav", "y_trial_3.sav")
     """
+    new_X = []
+    ablation = 10
+    for features in X:
+        new_features = []
+        for i in range(len(features)):
+            if not (i == ablation):
+                new_features.append(features[i])
+        new_X.append(new_features)
+    print(len(new_X[0])) # Size of features
+    """
+    model = a.train_LR(X, Y, "LR_model_reduced.sav")
+    #model = a.open_model("LR_model_reduced.sav")
+    a.generate_predictions(model, "testing.json", "baseline.json", -1)
+    a.json_to_kaggle("baseline.json", "baseline.csv")
+    
+    """
+    #Training and Results Below:
+    #X, Y = a.vectorize("x_trial_2.sav", "y_trial_2.sav")
+    X, Y = a.open_vectors("x_trial_2.sav", "y_trial_2.sav")
+    model = a.open_model("LR_model_training.sav")
+    #model = a.train_LR(X, Y, "LR_model_training.sav")
+    a.generate_predictions(model, "testing.json", "testing_output.json")
+    
+    a.json_to_kaggle("testing_output.json", "kaggle_submit_a2.csv")
+
+    #Testing Below:
     question = "What led to the corporate America of start?"
     context = "Nobody saw it coming. The rise of populism and the death of manufacturing led to the start of corporate America. There was plenty of warning and yet no signs."
     thing_list = a.count_things(question)
@@ -158,4 +260,3 @@ if __name__ == "__main__":
     print(sentence)
     print(inversion_count)
     """
-
