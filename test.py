@@ -14,6 +14,6 @@ if __name__ == "__main__":
     try:
         pred_fname = sys.argv[2]
     except:
-        pred_fname = os.path.join(os.getcwd(), "pred.json")
-
+        pred_fname = os.path.join(os.getcwd(), "pred.csv")
+    model = m.train('training.json')
     m.predict(train_fname,pred_fname)
