@@ -118,24 +118,24 @@ class Andrew:
     def featurize(self, question, context, ablation):
         features = []
         noun_list, verb_list, word_list, special_list = self.count_things(question)
-        features.append(len(noun_list)) #0
-        features.append(len(verb_list)) #1
-        features.append(len(word_list)) #2
+        #features.append(len(noun_list)) #0
+        #features.append(len(verb_list)) #1
+        #features.append(len(word_list)) #2
         matches, max_score_sentence = self.count_matches([noun_list, verb_list, word_list], context)
         features.append(matches[0]) #3
         #features.append(matches[1]) #4
-        features.append(matches[2]) #5
+        #features.append(matches[2]) #5
         #inversions = self.detect_inversion(special_list, max_score_sentence)
         #features.append(inversions) #6
-        max_score_sentence_tags = nltk.pos_tag(nltk.word_tokenize(max_score_sentence))
+        #max_score_sentence_tags = nltk.pos_tag(nltk.word_tokenize(max_score_sentence))
         #special_question_rule = self.when_special(word_list, max_score_sentence_tags) + self.where_special(word_list, max_score_sentence_tags) + self.who_special(word_list, max_score_sentence_tags)
         #features.append(special_question_rule)
-        features.append(self.when_special(word_list, max_score_sentence_tags)) #7
-        features.append(self.where_special(word_list, max_score_sentence_tags)) #8
-        features.append(self.who_special(word_list, max_score_sentence_tags)) #9
-        features.append(self.other_special(word_list, max_score_sentence_tags)) #10
-        if (ablation >= 0):
-            features.pop(ablation)
+        #features.append(self.when_special(word_list, max_score_sentence_tags)) #7
+        #features.append(self.where_special(word_list, max_score_sentence_tags)) #8
+        #features.append(self.who_special(word_list, max_score_sentence_tags)) #9
+        #features.append(self.other_special(word_list, max_score_sentence_tags)) #10
+        #if (ablation >= 0):
+        #    features.pop(ablation)
         return features
 
     # Extract X and Y vectors from the data to use for logistic regression
@@ -220,43 +220,8 @@ class Andrew:
 if __name__ == "__main__":
 
     a = Andrew("training.json")
-    # Advanced Feature Set and Ablation Testing
     X, Y = a.vectorize("x_trial_reduced.sav", "y_trial_reduced.sav")
-    #X, Y = a.open_vectors("x_trial_ablation.sav", "y_trial_3.sav")
-    """
-    new_X = []
-    ablation = 10
-    for features in X:
-        new_features = []
-        for i in range(len(features)):
-            if not (i == ablation):
-                new_features.append(features[i])
-        new_X.append(new_features)
-    print(len(new_X[0])) # Size of features
-    """
     model = a.train_LR(X, Y, "LR_model_reduced.sav")
-    #model = a.open_model("LR_model_reduced.sav")
     a.generate_predictions(model, "testing.json", "baseline.json", -1)
     a.json_to_kaggle("baseline.json", "baseline.csv")
     
-    """
-    #Training and Results Below:
-    #X, Y = a.vectorize("x_trial_2.sav", "y_trial_2.sav")
-    X, Y = a.open_vectors("x_trial_2.sav", "y_trial_2.sav")
-    model = a.open_model("LR_model_training.sav")
-    #model = a.train_LR(X, Y, "LR_model_training.sav")
-    a.generate_predictions(model, "testing.json", "testing_output.json")
-    
-    a.json_to_kaggle("testing_output.json", "kaggle_submit_a2.csv")
-
-    #Testing Below:
-    question = "What led to the corporate America of start?"
-    context = "Nobody saw it coming. The rise of populism and the death of manufacturing led to the start of corporate America. There was plenty of warning and yet no signs."
-    thing_list = a.count_things(question)
-    matches, sentence = a.count_matches(thing_list, context)
-    inversion_count = a.detect_inversion(thing_list[3], sentence)
-    print(thing_list)
-    print(matches)
-    print(sentence)
-    print(inversion_count)
-    """
