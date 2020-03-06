@@ -1,5 +1,7 @@
 # NLP P4: Machine Reading Comprehension
 
+--imported from college-specific Github repository
+
 By AG,MF,DL
 
 _Note: Upload MRC models and scripts here but have the train/test data locally because some are larger than the 25MB threshold that Cornell Github allows_
